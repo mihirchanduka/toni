@@ -1,0 +1,44 @@
+# Binaries
+foodlog
+toni
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Config and secrets
+.env
+.env.local
+.env.production
+yelp_api_key
+mapbox_token
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+
+# Build cache
+.gocache/
+
+# Internal planning docs (already in plans/ folder)
+plans/
+
+# Temporary files
+.tmp/
