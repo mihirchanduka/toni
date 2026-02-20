@@ -12,9 +12,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// version is set at build time via -ldflags
+var version = "dev"
+
 func main() {
 	// Parse CLI flags
-	config, err := cmd.ParseFlags()
+	config, err := cmd.ParseFlags(version)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

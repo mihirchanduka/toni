@@ -17,16 +17,23 @@ type Config struct {
 }
 
 // ParseFlags parses command-line flags and returns configuration.
-func ParseFlags() (*Config, error) {
+func ParseFlags(version string) (*Config, error) {
 	config := &Config{}
 
 	// Load .env files first so env-based defaults work with existing flag parsing.
 	loadDotEnv(".env")
 	loadDotEnv(".env.local")
 
+	var showVersion bool
+	flag.BoolVar(&showVersion, "version", false, "Show version and exit")
 	flag.StringVar(&config.DBPath, "db", "", "Path to SQLite database file (default: ~/.toni/toni.db)")
 	flag.StringVar(&config.YelpAPIKey, "yelp-key", "", "Yelp Fusion API key (or set YELP_API_KEY env var)")
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("toni version %s\n", version)
+		os.Exit(0)
+	}
 
 	// Get Yelp API key from env if not provided via flag
 	if config.YelpAPIKey == "" {
