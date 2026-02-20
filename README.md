@@ -52,16 +52,7 @@ toni integrates with the Yelp Fusion API to provide smart restaurant autocomplet
 
 1. Open the Yelp developer dashboard at https://www.yelp.com/developers/v3/manage_app
 2. Create an API key at https://www.yelp.com/developers/v3/manage_app
-3. Set your API key via environment variable or CLI flag:
-
-```bash
-# Option 1: Environment variable (recommended)
-export YELP_API_KEY=your_yelp_api_key_here
-toni
-
-# Option 2: CLI flag
-toni --yelp-key your_yelp_api_key_here
-```
+3. Set your API key via the onboarding process or in `~/.toni`
 
 #### How it Works
 
@@ -154,23 +145,6 @@ The autocomplete provides:
 - Would Return? (Yes/No)
 - Notes (free text)
 
-## Screenshot
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ toni > Visits                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ Date         Restaurant              City        Rating  Return?│
-│ Feb 19, 2026 Osteria Francescana    Modena      10/10   Yes    │
-│ Feb 18, 2026 El Bulli               Barcelona   9/10    Yes    │
-│ Feb 15, 2026 Noma                   Copenhagen  8/10    No     │
-│                                                                  │
-│ Total visits: 3                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│ j/k navigate  a add visit  r restaurants  enter details  q quit │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ## Architecture
 
 Built with a clean separation of concerns:
@@ -187,7 +161,7 @@ Built with a clean separation of concerns:
 - [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
 - [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Styling
 - [modernc.org/sqlite](https://modernc.org/sqlite) - Pure Go SQLite driver
-
+- [micasa](https://micasa.dev/) - Original Inspiration
 ## License
 
 MIT
