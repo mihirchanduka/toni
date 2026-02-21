@@ -4,14 +4,16 @@ import "github.com/charmbracelet/lipgloss"
 
 // Color palette
 var (
-	ColorBase    = lipgloss.Color("#1D221E")
-	ColorSurface = lipgloss.Color("#2A332C")
-	ColorMuted   = lipgloss.Color("#7E8C80")
-	ColorText    = lipgloss.Color("#D6E0D3")
-	ColorAccent  = lipgloss.Color("#8FA082")
-	ColorGreen   = lipgloss.Color("#a6e3a1")
-	ColorRed     = lipgloss.Color("#f38ba8")
-	ColorYellow  = lipgloss.Color("#f9e2af")
+	ColorBase       = lipgloss.AdaptiveColor{Light: "#F4F6F2", Dark: "#151A14"}
+	ColorSurface    = lipgloss.AdaptiveColor{Light: "#E8EDE5", Dark: "#1E251D"}
+	ColorSurfaceAlt = lipgloss.AdaptiveColor{Light: "#DCE4D7", Dark: "#273026"}
+	ColorMuted      = lipgloss.AdaptiveColor{Light: "#6E7B65", Dark: "#A8B3A2"}
+	ColorText       = lipgloss.AdaptiveColor{Light: "#243024", Dark: "#E8ECE5"}
+	ColorAccent     = lipgloss.AdaptiveColor{Light: "#8FA082", Dark: "#A5B69A"}
+	ColorOnAccent   = lipgloss.AdaptiveColor{Light: "#1B2818", Dark: "#102015"}
+	ColorGreen      = lipgloss.AdaptiveColor{Light: "#7B9372", Dark: "#97B089"}
+	ColorRed        = lipgloss.AdaptiveColor{Light: "#B8695D", Dark: "#D28A7D"}
+	ColorYellow     = lipgloss.AdaptiveColor{Light: "#A4935D", Dark: "#CFC08A"}
 )
 
 // Styles
@@ -28,21 +30,30 @@ var (
 	TitleStyle = lipgloss.NewStyle().
 			Foreground(ColorAccent).
 			Bold(true).
-			Padding(0, 1).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderBottom(true).
-			BorderForeground(ColorMuted)
+			Padding(0, 1)
+
+	HeaderBoxStyle = lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(ColorMuted).
+			Padding(0, 1)
 
 	TableHeaderStyle = lipgloss.NewStyle().
-				Foreground(ColorAccent).
+				Foreground(ColorText).
 				Bold(true).
-				Padding(0, 1).
-				Background(ColorSurface)
+				Padding(0, 1)
+
+	TableSeparatorStyle = lipgloss.NewStyle().
+				Foreground(ColorMuted).
+				Faint(true)
+
+	TableDividerStyle = lipgloss.NewStyle().
+				Foreground(ColorMuted).
+				Faint(true)
 
 	SelectedRowStyle = lipgloss.NewStyle().
-				Foreground(ColorBase).
+				Foreground(ColorOnAccent).
 				Background(ColorAccent).
-				Bold(false)
+				Bold(true)
 
 	NormalRowStyle = lipgloss.NewStyle().
 			Foreground(ColorText)

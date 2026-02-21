@@ -229,6 +229,27 @@ func (m *WantToVisitModel) SortActiveColumn(desc bool) {
 	m.rebuild()
 }
 
+func (m *WantToVisitModel) CycleSortActiveColumn() string {
+	activeKey := m.columns[m.activeColumn].key
+	activeLabel := strings.ToUpper(m.columns[m.activeColumn].label)
+	switch {
+	case m.sortKey != activeKey:
+		m.sortKey = activeKey
+		m.sortDesc = false
+		m.rebuild()
+		return fmt.Sprintf("Sorted %s ascending", activeLabel)
+	case !m.sortDesc:
+		m.sortDesc = true
+		m.rebuild()
+		return fmt.Sprintf("Sorted %s descending", activeLabel)
+	default:
+		m.sortKey = ""
+		m.sortDesc = false
+		m.rebuild()
+		return "Sorting cleared"
+	}
+}
+
 func (m *WantToVisitModel) HideActiveColumn() bool {
 	if len(m.visibleColumnIndexes()) <= 1 {
 		return false
@@ -267,6 +288,29 @@ func (m *WantToVisitModel) ClearFilter() bool {
 	m.filterValue = ""
 	m.rebuild()
 	return true
+}
+
+func (m *WantToVisitModel) CycleFilterBySelectedValue() string {
+	if len(m.entries) == 0 {
+		return "No rows to filter"
+	}
+	key := m.columns[m.activeColumn].key
+	value := strings.TrimSpace(m.getValue(m.entries[m.cursor], key))
+	if value == "" {
+		return "No filterable value in selected cell"
+	}
+
+	if m.filterKey == key && strings.EqualFold(strings.TrimSpace(m.filterValue), value) {
+		m.filterKey = ""
+		m.filterValue = ""
+		m.rebuild()
+		return "Filter cleared"
+	}
+
+	m.filterKey = key
+	m.filterValue = value
+	m.rebuild()
+	return "Filter applied from selected value"
 }
 
 func (m *WantToVisitModel) TableMeta() string {
@@ -350,9 +394,9 @@ func (m *WantToVisitModel) View(width, height int) string {
 	totalFixed := 0
 	for _, idx := range visible {
 		col := m.columns[idx]
-		label := strings.ToUpper(col.label)
+		label := formatHeaderLabel(col.label)
 		if idx == m.activeColumn {
-			label = "❋ " + label
+			label = renderActiveHeaderLabel(label)
 		}
 		if m.sortKey == col.key {
 			if m.sortDesc {
@@ -361,13 +405,14 @@ func (m *WantToVisitModel) View(width, height int) string {
 				label += " ↑"
 			}
 		}
-		cellWidth := max(col.width, lipgloss.Width(label)+2)
+		cellWidth := max(col.width+2, lipgloss.Width(label)+4)
 		totalFixed += cellWidth
 		widths = append(widths, cellWidth)
 		headers = append(headers, label)
 	}
 	if len(widths) > 0 {
-		extra := width - totalFixed - 4
+		sepTotal := (len(widths) - 1) * tableSeparatorWidth()
+		extra := width - totalFixed - sepTotal - 2
 		if extra > 0 {
 			widths[len(widths)-1] += extra
 		}
@@ -375,6 +420,7 @@ func (m *WantToVisitModel) View(width, height int) string {
 
 	headerStyle := TableHeaderStyle.Bold(true)
 	header := renderTableRow(headers, widths, headerStyle)
+	divider := renderTableDivider(widths)
 
 	visibleHeight := height - 3
 	var rows []string
@@ -383,30 +429,35 @@ func (m *WantToVisitModel) View(width, height int) string {
 		style := NormalRowStyle
 		if i == m.cursor {
 			style = SelectedRowStyle
-		} else if i%2 == 1 {
-			style = style.Background(lipgloss.Color("#232B24"))
 		}
 
 		cells := make([]string, 0, len(visible))
+		aligns := make([]lipgloss.Position, 0, len(visible))
 		for _, idx := range visible {
 			col := m.columns[idx]
 			switch col.key {
 			case "name":
-				cells = append(cells, util.TruncateString(entry.RestaurantName, col.width-2))
+				cells = append(cells, util.TruncateString(entry.RestaurantName, col.width))
+				aligns = append(aligns, lipgloss.Center)
 			case "address":
-				cells = append(cells, util.TruncateString(entry.Address, col.width-2))
+				cells = append(cells, util.TruncateString(entry.Address, col.width))
+				aligns = append(aligns, lipgloss.Center)
 			case "city":
-				cells = append(cells, util.TruncateString(entry.City, col.width-2))
+				cells = append(cells, util.TruncateString(entry.City, col.width))
+				aligns = append(aligns, lipgloss.Center)
 			case "area":
-				cells = append(cells, util.TruncateString(entry.Neighborhood, col.width-2))
+				cells = append(cells, util.TruncateString(entry.Neighborhood, col.width))
+				aligns = append(aligns, lipgloss.Center)
 			case "cuisine":
-				cells = append(cells, util.TruncateString(entry.Cuisine, col.width-2))
+				cells = append(cells, util.TruncateString(entry.Cuisine, col.width))
+				aligns = append(aligns, lipgloss.Center)
 			case "price":
 				priceCell := entry.PriceRange
 				if priceCell == "" {
 					priceCell = "—"
 				}
 				cells = append(cells, priceCell)
+				aligns = append(aligns, lipgloss.Center)
 			case "priority":
 				priorityStr := "—"
 				if entry.Priority != nil {
@@ -420,12 +471,14 @@ func (m *WantToVisitModel) View(width, height int) string {
 					priorityStr = lipgloss.NewStyle().Foreground(color).Render(priorityStr)
 				}
 				cells = append(cells, priorityStr)
+				aligns = append(aligns, lipgloss.Center)
 			case "notes":
-				cells = append(cells, util.TruncateString(entry.Notes, col.width-2))
+				cells = append(cells, util.TruncateString(entry.Notes, col.width))
+				aligns = append(aligns, lipgloss.Left)
 			}
 		}
 
-		rows = append(rows, renderTableRow(cells, widths, style))
+		rows = append(rows, renderTableRowWithAligns(cells, widths, aligns, style))
 	}
 
 	filterInfo := ""
@@ -436,18 +489,27 @@ func (m *WantToVisitModel) View(width, height int) string {
 	if meta != "" {
 		meta = "  ·  " + meta
 	}
-	status := StatusBarStyle.Render(fmt.Sprintf("Total places: %d%s%s", len(m.entries), filterInfo, meta))
+	rowPos := ""
+	if len(m.entries) > 0 {
+		rowPos = fmt.Sprintf("  ·  row %d/%d", m.cursor+1, len(m.entries))
+	}
+	status := StatusBarStyle.Render(fmt.Sprintf("Total places: %d%s%s%s", len(m.entries), rowPos, filterInfo, meta))
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
+		divider,
 		strings.Join(rows, "\n"),
 	)
+	statusHeight := lipgloss.Height(status)
+	contentHeight := lipgloss.Height(content)
+	spacerHeight := max(0, height-contentHeight-statusHeight)
+	spacer := lipgloss.NewStyle().Height(spacerHeight).Render("")
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		content,
-		"",
+		spacer,
 		status,
 	)
 }

@@ -111,18 +111,16 @@ func (m *RestaurantDetailModel) renderVisitsTable(width int) string {
 
 	headerStyle := TableHeaderStyle.Bold(true)
 	header := renderTableRow(
-		[]string{strings.ToUpper("date"), strings.ToUpper("rating"), strings.ToUpper("return")},
+		[]string{formatHeaderLabel("date"), formatHeaderLabel("rating"), formatHeaderLabel("return")},
 		[]int{dateWidth, ratingWidth, returnWidth},
 		headerStyle,
 	)
+	divider := renderTableDivider([]int{dateWidth, ratingWidth, returnWidth})
 
 	var rows []string
 	for i, v := range m.detail.Visits {
 		if i >= 5 { // Already showed first 5 in timeline
 			style := NormalRowStyle
-			if i%2 == 1 {
-				style = style.Background(lipgloss.Color("#232B24"))
-			}
 
 			ratingCell := util.FormatRating(v.Rating)
 			if v.Rating != nil {
@@ -154,6 +152,7 @@ func (m *RestaurantDetailModel) renderVisitsTable(width int) string {
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
 		header,
+		divider,
 		strings.Join(rows, "\n"),
 	)
 }

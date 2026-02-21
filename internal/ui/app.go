@@ -12,6 +12,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+)
+
+const (
+	minUsableWidth  = 72
+	minUsableHeight = 18
 )
 
 // Model is the root Bubble Tea model.
@@ -265,7 +271,9 @@ func (m Model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return ""
 	}
-
+	if m.width < minUsableWidth || m.height < minUsableHeight {
+		return renderTerminalTooSmall(m.width, m.height)
+	}
 	if m.showingHelp {
 		return RenderFullHelp(m.width, m.height)
 	}
@@ -278,66 +286,99 @@ func (m Model) View() string {
 		m.screen == model.ScreenRestaurants ||
 		m.screen == model.ScreenWantToVisit
 
-	// Calculate content height: total - header - footer - tabs (if shown)
-	// Header: 1 line, Footer: 1 line, Tabs: 2 lines (if shown)
-	contentHeight := m.height - 4 // header + footer + padding
-	if showTabs {
-		contentHeight -= 2 // tabs take 2 lines
-	}
-
 	switch m.screen {
 	case model.ScreenVisits:
 		breadcrumbParts = []string{"Visits"}
-		if m.visits != nil {
-			content = m.visits.View(m.width, contentHeight)
-		}
 	case model.ScreenRestaurants:
 		breadcrumbParts = []string{"Restaurants"}
-		if m.restaurants != nil {
-			content = m.restaurants.View(m.width, contentHeight)
-		}
 	case model.ScreenWantToVisit:
 		breadcrumbParts = []string{"Want to Visit"}
-		if m.wantToVisit != nil {
-			content = m.wantToVisit.View(m.width, contentHeight)
-		}
 	case model.ScreenVisitDetail:
 		breadcrumbParts = []string{"Visits", "Detail"}
 		if m.visitDetail != nil {
 			breadcrumbParts = []string{"Visits", m.visitDetail.restaurant.Name}
-			content = m.visitDetail.View(m.width, contentHeight)
 		}
 	case model.ScreenRestaurantDetail:
 		breadcrumbParts = []string{"Restaurants", "Detail"}
 		if m.restaurantDetail != nil {
 			breadcrumbParts = []string{"Restaurants", m.restaurantDetail.detail.Restaurant.Name}
-			content = m.restaurantDetail.View(m.width, contentHeight)
 		}
 	case model.ScreenWantToVisitDetail:
 		breadcrumbParts = []string{"Want to Visit", "Detail"}
 		if m.wantToVisitDetail != nil {
 			breadcrumbParts = []string{"Want to Visit", m.wantToVisitDetail.restaurant.Name}
-			content = m.wantToVisitDetail.View(m.width, contentHeight)
 		}
 	case model.ScreenVisitForm:
 		breadcrumbParts = []string{"Visits", "Form"}
+	case model.ScreenRestaurantForm:
+		breadcrumbParts = []string{"Restaurants", "Form"}
+	case model.ScreenWantToVisitForm:
+		breadcrumbParts = []string{"Want to Visit", "Form"}
+	}
+
+	header := renderHeader(breadcrumbParts, m.width)
+	tabs := ""
+	if showTabs {
+		tabs = renderTabs(m.screen, m.width)
+	}
+	footer := RenderHelp(m.screen, m.mode, m.width)
+	var banners []string
+	if m.error != "" {
+		banners = append(banners, ErrorStyle.Width(m.width).Render("Error: "+m.error))
+	}
+	if m.info != "" {
+		banners = append(banners, SuccessStyle.Width(m.width).Render(m.info))
+	}
+
+	contentHeight := m.height - lipgloss.Height(header) - lipgloss.Height(footer)
+	if tabs != "" {
+		contentHeight -= lipgloss.Height(tabs)
+	}
+	for _, b := range banners {
+		contentHeight -= lipgloss.Height(b)
+	}
+	if contentHeight < 3 {
+		return renderTerminalTooSmall(m.width, m.height)
+	}
+
+	switch m.screen {
+	case model.ScreenVisits:
+		if m.visits != nil {
+			content = m.visits.View(m.width, contentHeight)
+		}
+	case model.ScreenRestaurants:
+		if m.restaurants != nil {
+			content = m.restaurants.View(m.width, contentHeight)
+		}
+	case model.ScreenWantToVisit:
+		if m.wantToVisit != nil {
+			content = m.wantToVisit.View(m.width, contentHeight)
+		}
+	case model.ScreenVisitDetail:
+		if m.visitDetail != nil {
+			content = m.visitDetail.View(m.width, contentHeight)
+		}
+	case model.ScreenRestaurantDetail:
+		if m.restaurantDetail != nil {
+			content = m.restaurantDetail.View(m.width, contentHeight)
+		}
+	case model.ScreenWantToVisitDetail:
+		if m.wantToVisitDetail != nil {
+			content = m.wantToVisitDetail.View(m.width, contentHeight)
+		}
+	case model.ScreenVisitForm:
 		if m.visitForm != nil {
 			content = m.visitForm.View(m.width, contentHeight)
 		}
 	case model.ScreenRestaurantForm:
-		breadcrumbParts = []string{"Restaurants", "Form"}
 		if m.restaurantForm != nil {
 			content = m.restaurantForm.View(m.width, contentHeight)
 		}
 	case model.ScreenWantToVisitForm:
-		breadcrumbParts = []string{"Want to Visit", "Form"}
 		if m.wantToVisitForm != nil {
 			content = m.wantToVisitForm.View(m.width, contentHeight)
 		}
 	}
-
-	header := renderHeader(breadcrumbParts, m.width)
-	footer := RenderHelp(m.screen, m.mode, m.width)
 
 	// Ensure content fills the available height to anchor footer at bottom
 	contentStyle := lipgloss.NewStyle().
@@ -345,36 +386,65 @@ func (m Model) View() string {
 		Height(contentHeight)
 	content = contentStyle.Render(content)
 
-	// Build the view with or without tabs
-	if showTabs {
-		tabs := renderTabs(m.screen, m.width)
-		if m.error != "" {
-			errorBanner := ErrorStyle.Width(m.width).Render("Error: " + m.error)
-			if m.info != "" {
-				infoBanner := SuccessStyle.Width(m.width).Render(m.info)
-				return lipgloss.JoinVertical(lipgloss.Left, header, tabs, errorBanner, infoBanner, content, footer)
-			}
-			return lipgloss.JoinVertical(lipgloss.Left, header, tabs, errorBanner, content, footer)
+	parts := []string{header}
+	if tabs != "" {
+		parts = append(parts, tabs)
+	}
+	parts = append(parts, banners...)
+	parts = append(parts, content, footer)
+	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+}
+
+func renderTerminalTooSmall(width, height int) string {
+	panel := lipgloss.JoinVertical(
+		lipgloss.Center,
+		ErrorStyle.Render("Terminal too small"),
+		"",
+		BreadcrumbStyle.Render(fmt.Sprintf(
+			"%dx%d detected, need at least %dx%d",
+			width, height, minUsableWidth, minUsableHeight,
+		)),
+	)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, panel)
+}
+
+func (m Model) switchTopLevel(target model.Screen) (tea.Model, tea.Cmd) {
+	m.screen = target
+	switch target {
+	case model.ScreenVisits:
+		return m, nil
+	case model.ScreenWantToVisit:
+		if m.wantToVisit == nil {
+			return m, loadWantToVisitCmd(m.db)
 		}
-		if m.info != "" {
-			infoBanner := SuccessStyle.Width(m.width).Render(m.info)
-			return lipgloss.JoinVertical(lipgloss.Left, header, tabs, infoBanner, content, footer)
+		return m, nil
+	case model.ScreenRestaurants:
+		if m.restaurants == nil {
+			return m, loadRestaurantsCmd(m.db, "")
 		}
-		return lipgloss.JoinVertical(lipgloss.Left, header, tabs, content, footer)
-	} else {
-		if m.error != "" {
-			errorBanner := ErrorStyle.Width(m.width).Render("Error: " + m.error)
-			if m.info != "" {
-				infoBanner := SuccessStyle.Width(m.width).Render(m.info)
-				return lipgloss.JoinVertical(lipgloss.Left, header, errorBanner, infoBanner, content, footer)
-			}
-			return lipgloss.JoinVertical(lipgloss.Left, header, errorBanner, content, footer)
-		}
-		if m.info != "" {
-			infoBanner := SuccessStyle.Width(m.width).Render(m.info)
-			return lipgloss.JoinVertical(lipgloss.Left, header, infoBanner, content, footer)
-		}
-		return lipgloss.JoinVertical(lipgloss.Left, header, content, footer)
+	}
+	return m, nil
+}
+
+func nextTopLevelScreen(current model.Screen) model.Screen {
+	switch current {
+	case model.ScreenVisits:
+		return model.ScreenWantToVisit
+	case model.ScreenWantToVisit:
+		return model.ScreenRestaurants
+	default:
+		return model.ScreenVisits
+	}
+}
+
+func prevTopLevelScreen(current model.Screen) model.Screen {
+	switch current {
+	case model.ScreenVisits:
+		return model.ScreenRestaurants
+	case model.ScreenWantToVisit:
+		return model.ScreenVisits
+	default:
+		return model.ScreenWantToVisit
 	}
 }
 
@@ -416,40 +486,48 @@ func renderTabs(screen model.Screen, width int) string {
 }
 
 func renderHeader(breadcrumbParts []string, width int) string {
-	// Left side: app name + breadcrumb
-	title := HeaderStyle.Render("toni")
-
-	var breadcrumb string
+	// Build raw strings first so truncation never touches styled ANSI content.
+	leftRaw := "toni"
 	if len(breadcrumbParts) > 0 {
-		separator := BreadcrumbStyle.Render(" › ")
-		parts := make([]string, len(breadcrumbParts))
-		for i, part := range breadcrumbParts {
-			if i == len(breadcrumbParts)-1 {
-				parts[i] = BreadcrumbActiveStyle.Render(part)
-			} else {
-				parts[i] = BreadcrumbStyle.Render(part)
-			}
-		}
-		breadcrumb = separator + strings.Join(parts, separator)
+		leftRaw += " › " + strings.Join(breadcrumbParts, " › ")
+	}
+	rightRaw := " " + time.Now().Format("Mon 02 Jan") + " "
+
+	box := HeaderBoxStyle.Copy()
+	innerWidth := width - box.GetHorizontalFrameSize()
+	if innerWidth < 1 {
+		innerWidth = 1
 	}
 
-	left := "  " + title + breadcrumb // Add left padding
+	// Keep the header stable by fitting plain text into available width.
+	rightLen := lipgloss.Width(rightRaw)
+	if rightLen >= innerWidth {
+		rightRaw = ""
+		rightLen = 0
+	}
+	maxLeft := innerWidth - rightLen
+	if rightLen > 0 {
+		maxLeft-- // ensure at least one spacer between left and date
+	}
+	if maxLeft < 0 {
+		maxLeft = 0
+	}
+	leftRaw = ansi.Truncate(leftRaw, maxLeft, "…")
 
-	// Right side: current date
-	now := time.Now()
-	dateStr := now.Format("Mon 02 Jan")
-	right := BreadcrumbStyle.Render(dateStr) + "  " // Add right padding
+	left := HeaderStyle.Render(leftRaw)
+	right := BreadcrumbStyle.Render(rightRaw)
 
 	// Calculate padding
 	leftLen := lipgloss.Width(left)
-	rightLen := lipgloss.Width(right)
-	padding := width - leftLen - rightLen
+	padding := innerWidth - leftLen - rightLen
 	if padding < 0 {
 		padding = 0
 	}
 
 	headerContent := left + strings.Repeat(" ", padding) + right
-	return TitleStyle.Width(width).Render(headerContent)
+	return box.Width(width).Render(
+		lipgloss.NewStyle().Width(innerWidth).Render(headerContent),
+	)
 }
 
 // handleNavMode handles navigation mode input.
@@ -469,13 +547,7 @@ func (m Model) handleNavMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.info = "Jump to column: press 1-9 (esc to cancel)"
 			return m, nil
 		case "s":
-			t.SortActiveColumn(false)
-			m.info = "Sorted ascending"
-			m.persistCurrentTablePrefs()
-			return m, nil
-		case "S":
-			t.SortActiveColumn(true)
-			m.info = "Sorted descending"
+			m.info = t.CycleSortActiveColumn()
 			m.persistCurrentTablePrefs()
 			return m, nil
 		case "c":
@@ -492,18 +564,8 @@ func (m Model) handleNavMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.persistCurrentTablePrefs()
 			return m, nil
 		case "n":
-			if t.FilterBySelectedValue() {
-				m.info = "Filter applied from selected value"
-				m.persistCurrentTablePrefs()
-			} else {
-				m.info = "No filterable value in selected cell"
-			}
-			return m, nil
-		case "N":
-			if t.ClearFilter() {
-				m.info = "Filter cleared"
-				m.persistCurrentTablePrefs()
-			}
+			m.info = t.CycleFilterBySelectedValue()
+			m.persistCurrentTablePrefs()
 			return m, nil
 		}
 	}
@@ -649,20 +711,14 @@ func (m Model) handleVisitsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.String() == "q":
 		return m, tea.Quit
-	case msg.String() == "left":
-		// Navigate tabs left
-		m.screen = model.ScreenRestaurants
-		if m.restaurants == nil {
-			return m, loadRestaurantsCmd(m.db, "")
-		}
-		return m, nil
-	case msg.String() == "right":
-		// Navigate tabs right
-		m.screen = model.ScreenWantToVisit
-		if m.wantToVisit == nil {
-			return m, loadWantToVisitCmd(m.db)
-		}
-		return m, nil
+	case msg.String() == "left" || msg.String() == "b":
+		return m.switchTopLevel(prevTopLevelScreen(m.screen))
+	case msg.String() == "right" || msg.String() == "f":
+		return m.switchTopLevel(nextTopLevelScreen(m.screen))
+	case msg.String() == "B":
+		return m.switchTopLevel(model.ScreenVisits)
+	case msg.String() == "F":
+		return m.switchTopLevel(model.ScreenRestaurants)
 	case msg.String() == "r":
 		m.screen = model.ScreenRestaurants
 		if m.restaurants == nil {
@@ -695,10 +751,10 @@ func (m Model) handleVisitsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "G":
 		m.visits.JumpToBottom()
 		return m, nil
-	case msg.String() == "ctrl+d":
+	case msg.String() == "ctrl+d" || msg.String() == "pgdown":
 		m.visits.HalfPageDown(m.height / 2)
 		return m, nil
-	case msg.String() == "ctrl+u":
+	case msg.String() == "ctrl+u" || msg.String() == "pgup":
 		m.visits.HalfPageUp(m.height / 2)
 		return m, nil
 	}
@@ -712,20 +768,16 @@ func (m Model) handleRestaurantsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
-	case msg.String() == "left":
-		// Navigate tabs left
-		m.screen = model.ScreenWantToVisit
-		if m.wantToVisit == nil {
-			return m, loadWantToVisitCmd(m.db)
-		}
-		return m, nil
-	case msg.String() == "right":
-		// Navigate tabs right
-		m.screen = model.ScreenVisits
-		return m, nil
-	case msg.String() == "h" || msg.String() == "b":
-		m.screen = model.ScreenVisits
-		return m, nil
+	case msg.String() == "left" || msg.String() == "b":
+		return m.switchTopLevel(prevTopLevelScreen(m.screen))
+	case msg.String() == "right" || msg.String() == "f":
+		return m.switchTopLevel(nextTopLevelScreen(m.screen))
+	case msg.String() == "B":
+		return m.switchTopLevel(model.ScreenVisits)
+	case msg.String() == "F":
+		return m.switchTopLevel(model.ScreenRestaurants)
+	case msg.String() == "h":
+		return m.switchTopLevel(model.ScreenVisits)
 	case msg.String() == "w":
 		m.screen = model.ScreenWantToVisit
 		if m.wantToVisit == nil {
@@ -761,10 +813,10 @@ func (m Model) handleRestaurantsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "G":
 		m.restaurants.JumpToBottom()
 		return m, nil
-	case msg.String() == "ctrl+d":
+	case msg.String() == "ctrl+d" || msg.String() == "pgdown":
 		m.restaurants.HalfPageDown(m.height / 2)
 		return m, nil
-	case msg.String() == "ctrl+u":
+	case msg.String() == "ctrl+u" || msg.String() == "pgup":
 		m.restaurants.HalfPageUp(m.height / 2)
 		return m, nil
 	}
@@ -836,17 +888,14 @@ func (m Model) handleWantToVisitNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.String() == "q":
 		return m, tea.Quit
-	case msg.String() == "left":
-		// Navigate tabs left
-		m.screen = model.ScreenVisits
-		return m, nil
-	case msg.String() == "right":
-		// Navigate tabs right
-		m.screen = model.ScreenRestaurants
-		if m.restaurants == nil {
-			return m, loadRestaurantsCmd(m.db, "")
-		}
-		return m, nil
+	case msg.String() == "left" || msg.String() == "b":
+		return m.switchTopLevel(prevTopLevelScreen(m.screen))
+	case msg.String() == "right" || msg.String() == "f":
+		return m.switchTopLevel(nextTopLevelScreen(m.screen))
+	case msg.String() == "B":
+		return m.switchTopLevel(model.ScreenVisits)
+	case msg.String() == "F":
+		return m.switchTopLevel(model.ScreenRestaurants)
 	case msg.String() == "v":
 		m.screen = model.ScreenVisits
 		return m, nil
@@ -876,13 +925,13 @@ func (m Model) handleWantToVisitNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "G":
 		m.wantToVisit.JumpToBottom()
 		return m, nil
-	case msg.String() == "ctrl+d":
+	case msg.String() == "ctrl+d" || msg.String() == "pgdown":
 		// Half page down (approximate)
 		for i := 0; i < m.height/4; i++ {
 			m.wantToVisit.CursorDown()
 		}
 		return m, nil
-	case msg.String() == "ctrl+u":
+	case msg.String() == "ctrl+u" || msg.String() == "pgup":
 		// Half page up (approximate)
 		for i := 0; i < m.height/4; i++ {
 			m.wantToVisit.CursorUp()
