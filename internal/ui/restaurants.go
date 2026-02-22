@@ -24,6 +24,8 @@ type RestaurantsModel struct {
 	cursor  int
 	offset  int
 
+	viewportHeight int
+
 	columns      []restaurantColumn
 	activeColumn int
 	sortKey      string
@@ -382,6 +384,7 @@ func (m *RestaurantsModel) View(width, height int) string {
 	divider := renderTableDivider(widths)
 
 	visibleHeight := height - 3
+	m.viewportHeight = visibleHeight
 	var rows []string
 
 	totalRating := 0.0
@@ -480,7 +483,11 @@ func (m *RestaurantsModel) View(width, height int) string {
 func (m *RestaurantsModel) MoveDown() {
 	if m.cursor < len(m.rows)-1 {
 		m.cursor++
-		if m.cursor >= m.offset+10 {
+		vh := m.viewportHeight
+		if vh == 0 {
+			vh = 10
+		}
+		if m.cursor >= m.offset+vh {
 			m.offset++
 		}
 	}
@@ -506,8 +513,12 @@ func (m *RestaurantsModel) JumpToTop() {
 func (m *RestaurantsModel) JumpToBottom() {
 	if len(m.rows) > 0 {
 		m.cursor = len(m.rows) - 1
-		if m.cursor >= 10 {
-			m.offset = m.cursor - 9
+		vh := m.viewportHeight
+		if vh == 0 {
+			vh = 10
+		}
+		if m.cursor >= vh {
+			m.offset = m.cursor - vh + 1
 		}
 	}
 }
@@ -519,8 +530,12 @@ func (m *RestaurantsModel) HalfPageDown(pageSize int) {
 	if m.cursor >= len(m.rows) {
 		m.cursor = len(m.rows) - 1
 	}
-	if m.cursor >= m.offset+10 {
-		m.offset = m.cursor - 9
+	vh := m.viewportHeight
+	if vh == 0 {
+		vh = 10
+	}
+	if m.cursor >= m.offset+vh {
+		m.offset = m.cursor - vh + 1
 	}
 }
 

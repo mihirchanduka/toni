@@ -69,13 +69,22 @@ func GetWantToVisitList(db *sql.DB, orderBy string) ([]model.WantToVisitRow, err
 func GetWantToVisit(db *sql.DB, id int64) (model.WantToVisit, error) {
 	var wtv model.WantToVisit
 	var createdAt string
+	var notes sql.NullString
+	var priority sql.NullInt64
 	err := db.QueryRow(`
 		SELECT id, restaurant_id, notes, priority, created_at
 		FROM want_to_visit
 		WHERE id = ?
-	`, id).Scan(&wtv.ID, &wtv.RestaurantID, &wtv.Notes, &wtv.Priority, &createdAt)
+	`, id).Scan(&wtv.ID, &wtv.RestaurantID, &notes, &priority, &createdAt)
 	if err != nil {
 		return wtv, err
+	}
+	if notes.Valid {
+		wtv.Notes = notes.String
+	}
+	if priority.Valid {
+		p := int(priority.Int64)
+		wtv.Priority = &p
 	}
 
 	if t, err := time.Parse(time.RFC3339, createdAt); err == nil {

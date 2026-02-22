@@ -25,6 +25,8 @@ type VisitsModel struct {
 	cursor  int
 	offset  int
 
+	viewportHeight int
+
 	columns      []visitColumn
 	activeColumn int
 	sortKey      string
@@ -389,6 +391,7 @@ func (m *VisitsModel) View(width, height int) string {
 	divider := renderTableDivider(widths)
 
 	visibleHeight := height - 3
+	m.viewportHeight = visibleHeight
 	var rows []string
 
 	for i := m.offset; i < len(m.rows) && i < m.offset+visibleHeight; i++ {
@@ -487,7 +490,11 @@ func (m *VisitsModel) View(width, height int) string {
 func (m *VisitsModel) MoveDown() {
 	if m.cursor < len(m.rows)-1 {
 		m.cursor++
-		if m.cursor >= m.offset+10 {
+		vh := m.viewportHeight
+		if vh == 0 {
+			vh = 10
+		}
+		if m.cursor >= m.offset+vh {
 			m.offset++
 		}
 	}
@@ -513,8 +520,12 @@ func (m *VisitsModel) JumpToTop() {
 func (m *VisitsModel) JumpToBottom() {
 	if len(m.rows) > 0 {
 		m.cursor = len(m.rows) - 1
-		if m.cursor >= 10 {
-			m.offset = m.cursor - 9
+		vh := m.viewportHeight
+		if vh == 0 {
+			vh = 10
+		}
+		if m.cursor >= vh {
+			m.offset = m.cursor - vh + 1
 		}
 	}
 }
@@ -526,8 +537,12 @@ func (m *VisitsModel) HalfPageDown(pageSize int) {
 	if m.cursor >= len(m.rows) {
 		m.cursor = len(m.rows) - 1
 	}
-	if m.cursor >= m.offset+10 {
-		m.offset = m.cursor - 9
+	vh := m.viewportHeight
+	if vh == 0 {
+		vh = 10
+	}
+	if m.cursor >= m.offset+vh {
+		m.offset = m.cursor - vh + 1
 	}
 }
 

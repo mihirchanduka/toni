@@ -24,6 +24,8 @@ type WantToVisitModel struct {
 	cursor     int
 	offset     int
 
+	viewportHeight int
+
 	columns      []wantToVisitColumn
 	activeColumn int
 	sortKey      string
@@ -333,7 +335,11 @@ func (m *WantToVisitModel) TableMeta() string {
 func (m *WantToVisitModel) CursorDown() {
 	if m.cursor < len(m.entries)-1 {
 		m.cursor++
-		if m.cursor >= m.offset+10 {
+		vh := m.viewportHeight
+		if vh == 0 {
+			vh = 10
+		}
+		if m.cursor >= m.offset+vh {
 			m.offset++
 		}
 	}
@@ -359,8 +365,12 @@ func (m *WantToVisitModel) JumpToTop() {
 func (m *WantToVisitModel) JumpToBottom() {
 	if len(m.entries) > 0 {
 		m.cursor = len(m.entries) - 1
-		if m.cursor >= 10 {
-			m.offset = m.cursor - 9
+		vh := m.viewportHeight
+		if vh == 0 {
+			vh = 10
+		}
+		if m.cursor >= vh {
+			m.offset = m.cursor - vh + 1
 		}
 	}
 }
@@ -423,6 +433,7 @@ func (m *WantToVisitModel) View(width, height int) string {
 	divider := renderTableDivider(widths)
 
 	visibleHeight := height - 3
+	m.viewportHeight = visibleHeight
 	var rows []string
 	for i := m.offset; i < len(m.entries) && i < m.offset+visibleHeight; i++ {
 		entry := m.entries[i]

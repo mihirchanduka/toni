@@ -32,10 +32,11 @@ type Model struct {
 	width  int
 	height int
 
-	error       string
-	info        string
-	showingHelp bool
-	columnJump  bool
+	error        string
+	info         string
+	showingHelp  bool
+	columnJump   bool
+	returnScreen model.Screen
 
 	// Screen models
 	visits            *VisitsModel
@@ -67,6 +68,7 @@ func New(database *sql.DB, yelpClient *search.YelpClient, termCaps TerminalCapab
 		keys:             DefaultKeyMap(),
 		formKeys:         DefaultFormKeyMap(),
 		prefs:            loadUIPreferences(),
+		returnScreen:     model.ScreenVisits,
 	}
 }
 
@@ -178,21 +180,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.screen = model.ScreenRestaurants
 		m.restaurantForm = nil
 		m.info = "Restaurant saved"
-		return m, loadRestaurantsCmd(m.db, "")
+		return m, tea.Batch(
+			loadRestaurantsCmd(m.db, ""),
+			loadVisitsCmd(m.db, ""),
+			loadWantToVisitCmd(m.db),
+		)
 
 	case model.FormCancelledMsg:
 		m.mode = model.ModeNav
 		m.visitForm = nil
 		m.restaurantForm = nil
 		m.wantToVisitForm = nil
-		// Return to appropriate screen
-		if m.screen == model.ScreenVisitForm {
-			m.screen = model.ScreenVisits
-		} else if m.screen == model.ScreenRestaurantForm {
-			m.screen = model.ScreenRestaurants
-		} else if m.screen == model.ScreenWantToVisitForm {
-			m.screen = model.ScreenWantToVisit
-		}
+		m.screen = m.returnScreen
 		return m, nil
 
 	case model.DeleteVisitMsg:
@@ -211,7 +210,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.screen = model.ScreenRestaurants
 		m.restaurantDetail = nil
 		m.info = "Restaurant deleted (u to undo)"
-		return m, loadRestaurantsCmd(m.db, "")
+		return m, tea.Batch(
+			loadRestaurantsCmd(m.db, ""),
+			loadVisitsCmd(m.db, ""),
+			loadWantToVisitCmd(m.db),
+		)
 
 	case model.WantToVisitLoadedMsg:
 		m.wantToVisit = NewWantToVisitModel(msg.WantToVisit)
@@ -227,7 +230,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.screen = model.ScreenWantToVisit
 		m.wantToVisitForm = nil
 		m.info = "Want-to-visit entry saved"
-		return m, loadWantToVisitCmd(m.db)
+		return m, tea.Batch(
+			loadWantToVisitCmd(m.db),
+			loadRestaurantsCmd(m.db, ""),
+		)
 
 	case model.DeleteWantToVisitMsg:
 		m.pushUndoAction(m.buildDeleteWantToVisitAction(msg))
@@ -241,10 +247,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Convert want_to_visit to visit - open visit form with restaurant pre-filled
 		m.mode = model.ModeInsert
 		m.screen = model.ScreenVisitForm
+		m.returnScreen = model.ScreenWantToVisit
 		m.visitForm = NewVisitFormModel(m.db, m.yelpClient, msg.RestaurantID)
 		m.wantToVisitDetail = nil
 		m.info = "Converted to visit (u to undo)"
-		return m, nil
+		return m, loadWantToVisitCmd(m.db)
 
 	case undoAppliedMsg:
 		return m, m.applyUndoResult(msg)
@@ -509,6 +516,10 @@ func renderHeader(breadcrumbParts []string, width int) string {
 	if rightLen > 0 {
 		maxLeft-- // ensure at least one spacer between left and date
 	}
+	// Subtract 2 to account for potential wide char issues or rounding
+	if maxLeft > 2 {
+		maxLeft -= 2
+	}
 	if maxLeft < 0 {
 		maxLeft = 0
 	}
@@ -732,6 +743,7 @@ func (m Model) handleVisitsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case msg.String() == "a":
+		m.returnScreen = model.ScreenVisits
 		m.mode = model.ModeInsert
 		m.screen = model.ScreenVisitForm
 		m.visitForm = NewVisitFormModel(m.db, m.yelpClient, 0)
@@ -752,10 +764,10 @@ func (m Model) handleVisitsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.visits.JumpToBottom()
 		return m, nil
 	case msg.String() == "ctrl+d" || msg.String() == "pgdown":
-		m.visits.HalfPageDown(m.height / 2)
+		m.visits.HalfPageDown(m.height)
 		return m, nil
 	case msg.String() == "ctrl+u" || msg.String() == "pgup":
-		m.visits.HalfPageUp(m.height / 2)
+		m.visits.HalfPageUp(m.height)
 		return m, nil
 	}
 
@@ -768,6 +780,8 @@ func (m Model) handleRestaurantsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch {
+	case msg.String() == "q":
+		return m, tea.Quit
 	case msg.String() == "left" || msg.String() == "b":
 		return m.switchTopLevel(prevTopLevelScreen(m.screen))
 	case msg.String() == "right" || msg.String() == "f":
@@ -785,6 +799,7 @@ func (m Model) handleRestaurantsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case msg.String() == "a":
+		m.returnScreen = model.ScreenRestaurants
 		m.mode = model.ModeInsert
 		m.screen = model.ScreenRestaurantForm
 		m.restaurantForm = NewRestaurantFormModel(m.db, 0)
@@ -792,6 +807,7 @@ func (m Model) handleRestaurantsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "v":
 		if len(m.restaurants.rows) > 0 && m.restaurants.cursor < len(m.restaurants.rows) {
 			restaurantID := m.restaurants.rows[m.restaurants.cursor].ID
+			m.returnScreen = model.ScreenRestaurants
 			m.mode = model.ModeInsert
 			m.screen = model.ScreenVisitForm
 			m.visitForm = NewVisitFormModel(m.db, m.yelpClient, restaurantID)
@@ -814,10 +830,10 @@ func (m Model) handleRestaurantsNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.restaurants.JumpToBottom()
 		return m, nil
 	case msg.String() == "ctrl+d" || msg.String() == "pgdown":
-		m.restaurants.HalfPageDown(m.height / 2)
+		m.restaurants.HalfPageDown(m.height)
 		return m, nil
 	case msg.String() == "ctrl+u" || msg.String() == "pgup":
-		m.restaurants.HalfPageUp(m.height / 2)
+		m.restaurants.HalfPageUp(m.height)
 		return m, nil
 	}
 
@@ -832,6 +848,7 @@ func (m Model) handleVisitDetailNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case msg.String() == "e":
 		if m.visitDetail != nil {
+			m.returnScreen = model.ScreenVisitDetail
 			m.mode = model.ModeInsert
 			m.screen = model.ScreenVisitForm
 			m.visitForm = NewVisitFormModel(m.db, m.yelpClient, 0)
@@ -856,6 +873,7 @@ func (m Model) handleRestaurantDetailNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case msg.String() == "v":
 		if m.restaurantDetail != nil {
+			m.returnScreen = model.ScreenRestaurantDetail
 			m.mode = model.ModeInsert
 			m.screen = model.ScreenVisitForm
 			m.visitForm = NewVisitFormModel(m.db, m.yelpClient, m.restaurantDetail.detail.Restaurant.ID)
@@ -864,6 +882,7 @@ func (m Model) handleRestaurantDetailNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case msg.String() == "e":
 		if m.restaurantDetail != nil {
+			m.returnScreen = model.ScreenRestaurantDetail
 			m.mode = model.ModeInsert
 			m.screen = model.ScreenRestaurantForm
 			m.restaurantForm = NewRestaurantFormModel(m.db, 0)
@@ -906,6 +925,7 @@ func (m Model) handleWantToVisitNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case msg.String() == "a":
+		m.returnScreen = model.ScreenWantToVisit
 		m.mode = model.ModeInsert
 		m.screen = model.ScreenWantToVisitForm
 		m.wantToVisitForm = NewWantToVisitFormModel(m.db, m.yelpClient, 0)
@@ -927,13 +947,13 @@ func (m Model) handleWantToVisitNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case msg.String() == "ctrl+d" || msg.String() == "pgdown":
 		// Half page down (approximate)
-		for i := 0; i < m.height/4; i++ {
+		for i := 0; i < m.height/2; i++ {
 			m.wantToVisit.CursorDown()
 		}
 		return m, nil
 	case msg.String() == "ctrl+u" || msg.String() == "pgup":
 		// Half page up (approximate)
-		for i := 0; i < m.height/4; i++ {
+		for i := 0; i < m.height/2; i++ {
 			m.wantToVisit.CursorUp()
 		}
 		return m, nil
@@ -956,6 +976,7 @@ func (m Model) handleWantToVisitDetailNav(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case msg.String() == "e":
 		if m.wantToVisitDetail != nil {
+			m.returnScreen = model.ScreenWantToVisitDetail
 			m.mode = model.ModeInsert
 			m.screen = model.ScreenWantToVisitForm
 			m.wantToVisitForm = NewWantToVisitFormModel(m.db, m.yelpClient, 0)

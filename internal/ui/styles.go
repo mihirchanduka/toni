@@ -34,8 +34,7 @@ var (
 
 	HeaderBoxStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(ColorMuted).
-			Padding(0, 1)
+			BorderForeground(ColorMuted)
 
 	TableHeaderStyle = lipgloss.NewStyle().
 				Foreground(ColorText).

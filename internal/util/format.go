@@ -169,11 +169,12 @@ func ParseVisitDateInput(input string) (string, error) {
 
 // TruncateString truncates a string to maxLen and adds "..." if needed.
 func TruncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
 	if maxLen < 3 {
-		return s[:maxLen]
+		return string(runes[:maxLen])
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }

@@ -26,7 +26,7 @@ func (m *RestaurantDetailModel) View(width, height int) string {
 	r := m.detail.Restaurant
 
 	// Keyboard shortcuts
-	shortcuts := HelpDescStyle.Render("v add visit  e edit  h back")
+	shortcuts := HelpDescStyle.Render("v add visit  e edit  d delete  h back")
 	header := lipgloss.NewStyle().
 		Width(width - 4).
 		Align(lipgloss.Right).

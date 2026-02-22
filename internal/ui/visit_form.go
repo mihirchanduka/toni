@@ -500,7 +500,15 @@ func (m *VisitFormModel) save() tea.Cmd {
 		var wouldReturn *bool
 		wrStr := strings.TrimSpace(strings.ToLower(m.inputs[3].Value()))
 		if wrStr != "" {
-			wr := wrStr == "y" || wrStr == "yes" || wrStr == "1"
+			var wr bool
+			switch wrStr {
+			case "y", "yes", "1":
+				wr = true
+			case "n", "no", "0":
+				wr = false
+			default:
+				return model.ErrorMsg{Err: fmt.Errorf("would return must be y/yes/1 or n/no/0")}
+			}
 			wouldReturn = &wr
 		}
 

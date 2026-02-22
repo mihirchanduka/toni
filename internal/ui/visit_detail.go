@@ -27,7 +27,7 @@ func (m *VisitDetailModel) View(width, height int) string {
 	var sections []string
 
 	// Keyboard shortcuts in top right corner
-	shortcuts := HelpDescStyle.Render("e edit  h back")
+	shortcuts := HelpDescStyle.Render("e edit  d delete  h back")
 
 	// Main info section
 	var fields []string
