@@ -4,164 +4,75 @@ A clean, local-first TUI for logging restaurant visits. Single-user, fully offli
 
 ## Features
 
-- **Local-first**: All data stored in a single SQLite file (`~/.toni/toni.db`)
-- **Restaurant Autocomplete**: Powered by Yelp Fusion API (optional, works offline without it)
-- **Vim-style navigation**: Modal interface with familiar keybindings
-- **Fast keyboard workflow**: Navigate, search, and add entries without touching the mouse
-- **Zero dependencies**: Pure Go, no CGO, no external services
-- **Beautiful TUI**: Clean design with polished tables, human-friendly dates, and color-coded ratings
+- **Local-first:** All data stored in a single SQLite file (`~/.toni/toni.db`).
+- **Restaurant Autocomplete:** Powered by Yelp Fusion API (optional, works perfectly offline without it).
+- **Vim-style navigation:** Modal interface with familiar keybindings (e.g., `h`, `j`, `k`, `l`).
+- **Fast keyboard workflow:** Navigate, search, and add entries without touching the mouse.
+- **Zero dependencies:** Pure Go, no CGO, no external services required.
+- **Beautiful TUI:** Clean design with polished tables, human-friendly dates, and color-coded ratings.
 
-## Installation
+## Prerequisites
 
-### From Source
+The project is built in pure Go and requires Go 1.22 or higher.
+
+## Build & Install
+
+From the project root, you can install the binary directly using Go:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/github_username/toni.git
 cd toni
 go install
 ```
 
-### Run Directly
+Alternatively, you can run it directly from the source:
 
 ```bash
 go run main.go
-go run main.go --db ~/my-food.db
 ```
 
-## Usage
+## Run
 
-### Database Location
-
-By default, toni stores your data in `~/.toni/toni.db`. You can override this with the `--db` flag:
+Execute the compiled binary from your terminal:
 
 ```bash
-toni --db /path/to/your/database.db
+toni
 ```
 
-To back up your data, simply copy the SQLite file:
-
-```bash
-cp ~/.toni/toni.db ~/backups/toni-backup.db
-```
-
-### Restaurant Autocomplete
-
-toni integrates with the Yelp Fusion API to provide smart restaurant autocomplete when adding visits. This is **completely optional** — the app works perfectly offline without it.
-
-#### Setup
-
-1. Open the Yelp developer dashboard at https://www.yelp.com/developers/v3/manage_app
-2. Create an API key at https://www.yelp.com/developers/v3/manage_app
-3. Set your API key via the onboarding process or in `~/.toni`
-
-#### How it Works
-
-When entering a restaurant name in the visit form:
-- Type 2+ characters to trigger autocomplete
-- Results appear in a dropdown below the input field
-- Navigate with `j/k` (or `↑/↓`)
-- Press `Enter` or `Tab` to select a suggestion
-- Press `Esc` to dismiss the dropdown
-
-The autocomplete provides:
-- Restaurant name
-- City and neighborhood
-- Cuisine type (auto-filled from Yelp categories)
-
-**Free Tier**: 10,000 API calls per month, no credit card required.
-
-**Offline Mode**: If no API key is set, toni displays a subtle startup message and the restaurant field works as a plain text input.
-
-## Keybindings
-
-### Navigation Mode (Default)
-
-#### Global Movement
-| Key        | Action              |
-|------------|---------------------|
-| j / ↓      | Move down           |
-| k / ↑      | Move up             |
-| h / ← / b  | Go back / parent    |
-| l / → / enter | Open / select    |
-| gg         | Jump to top         |
-| G          | Jump to bottom      |
-| ctrl+d     | Half page down      |
-| ctrl+u     | Half page up        |
-| /          | Search/filter       |
-| esc        | Cancel / close      |
-| q          | Quit                |
-| ?          | Toggle help         |
-
-#### Visits Screen (Home)
-| Key   | Action            |
-|-------|-------------------|
-| a     | Quick-add visit   |
-| r     | Go to restaurants |
-| enter | Open visit detail |
-
-#### Restaurants Screen
-| Key   | Action                  |
-|-------|-------------------------|
-| a     | Add restaurant          |
-| v     | Log visit for selected  |
-| enter | Open restaurant detail  |
-| b / h | Back to visits          |
-
-#### Detail Screens
-| Key      | Action     |
-|----------|------------|
-| h / esc  | Back       |
-| e        | Edit       |
-| d        | Delete     |
-| v        | Add visit (restaurants only) |
-
-### Insert/Edit Mode (Forms)
-
-| Key         | Action         |
-|-------------|----------------|
-| tab         | Next field     |
-| shift+tab   | Previous field |
-| ctrl+s      | Save           |
-| esc         | Cancel         |
-
-**Autocomplete Dropdown** (when active in restaurant field):
-- `j/k` or `↓/↑` to navigate suggestions
-- `enter` or `tab` to select
-- `esc` to dismiss
+### Usage Instructions
+1. **Database Location:** By default, toni stores your data in `~/.toni/toni.db`. You can override this using the `--db` flag (e.g., `toni --db ~/my-food.db`).
+2. **Yelp Autocomplete (Optional):** If you want smart restaurant autocomplete, create a Yelp API key at the [Yelp Developer Dashboard](https://www.yelp.com/developers/v3/manage_app). You can set it during toni's first-run onboarding or via the `YELP_API_KEY` environment variable.
+3. **Adding a Visit:** Press `a` from the home screen. If Yelp is configured, type 2+ characters to trigger autocomplete and use `j/k` to select a suggestion.
+4. **Navigation:** Use `j/k` (or arrows) to move up and down, `enter` to view details, and `esc` or `h` to go back. Press `?` at any time to toggle the help menu.
 
 ## Data Model
 
-### Restaurants
-- Name (required)
-- City
-- Neighborhood
-- Cuisine
-- Price Range ($, $$, $$$, $$$$)
+toni's local database captures:
 
-### Visits
-- Restaurant (required)
-- Date (YYYY-MM-DD, defaults to today)
-- Rating (1-10 scale)
-- Would Return? (Yes/No)
-- Notes (free text)
+- **Restaurants:** Name (required), City, Neighborhood, Cuisine, and Price Range ($, $$, $$$, $$$$).
+- **Visits:** Restaurant (required), Date, Rating (1-10 scale), Would Return? (Yes/No), and Notes.
 
-## Architecture
+## Keybindings
 
-Built with a clean separation of concerns:
+**Global Movement:**
+- `j` / `↓` : Move down
+- `k` / `↑` : Move up
+- `h` / `←` / `b` : Go back / parent
+- `l` / `→` / `enter` : Open / select
+- `/` : Search/filter
+- `esc` : Cancel / close
+- `q` : Quit
+- `?` : Toggle help
 
-- `internal/db/` - Database layer with typed queries
-- `internal/model/` - Domain types and Bubble Tea messages
-- `internal/ui/` - TUI components and screen logic
-- `internal/util/` - Formatting and validation utilities
-- `cmd/` - CLI flag parsing
+**Actions (Visits & Restaurants Screens):**
+- `a` : Quick-add visit / Add restaurant
+- `r` : Go to restaurants view
+- `v` : Log visit for selected restaurant
+- `e` : Edit entry (in Detail View)
+- `d` : Delete entry (in Detail View)
 
-## Tech Stack
+## Notes
 
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
-- [Bubbles](https://github.com/charmbracelet/bubbles) - TUI components
-- [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Styling
-- [modernc.org/sqlite](https://modernc.org/sqlite) - Pure Go SQLite driver
-- [micasa](https://micasa.dev/) - Original Inspiration
-## License
-
-MIT
+- **Backups:** To back up your data, simply copy the SQLite file: `cp ~/.toni/toni.db ~/backups/toni-backup.db`.
+- **Architecture:** Built with Bubble Tea, Bubbles, Lip Gloss, and modernc.org/sqlite (pure Go SQLite driver) with a clean separation of concerns (`db`, `model`, `ui`).
+- **Acknowledgments:** Original inspiration from [micasa](https://micasa.dev/).
